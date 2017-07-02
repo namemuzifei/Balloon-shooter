@@ -1,0 +1,327 @@
+<!doctype html>
+<html>
+<head>
+	<meta charset="utf-8">
+	<title>小游戏案例-打气球</title>
+	<style>
+		html,body{
+			width:100%;
+			height:100%;
+		}
+		body{
+			overflow:hidden;
+			background-repeat:no-repeat;
+			background-position:center center;
+			background-size:cover;
+		}
+		.balloon{
+			width:96px;
+			height:123px;
+			background:url('images/balloon.png') no-repeat;
+			position:absolute;
+		}
+
+		/* 定义气球爆炸的动画样式 */
+		.bomb{
+			animation: blow 0.5s forwards;
+		}
+
+		/* 声明动画 */
+		@keyframes blow{
+			from{
+				transform: scale(1);
+			}
+			to{
+				transform: scale(5); opacity: 0;
+			}
+		}
+	</style>
+</head>
+<body>
+	<audio src="images/gun.mp3" id="audio"></audio>
+
+	<!-- 面向对象的应用 -->
+	<script>
+		// 创建一个函数，用于在[m,n]之间产生一个随机的整数
+		function getRandom( m,n ){
+			return Math.floor( Math.random()*(n-m+1) ) + m;
+		}
+			
+		/***********************气球对象开始*****************************************/
+		// 创建气球对象：构造器+构造器原型的方法
+		// 构造器--存储对象属性
+		function Balloon(){
+			// 创建dom元素
+			this.ele = document.createElement( 'div' );
+
+			// 为新创建的dom元素添加类名
+			this.ele.classList.add( 'balloon' );
+
+			// 将新创建的dom元素插入body中
+			document.body.appendChild( this.ele );
+
+			//先插入body中,可以在初始时获取到css类中设置的宽高,使该对象的方法中可以获取到其this.ele.offsetWidth,否则为0
+			//初始时先触发气球的重生方法
+			this.reborn();
+		}
+
+		// 构造器原型--存储对象方法
+		// 气球向上移动的方法
+		Balloon.prototype.move = function(){
+			// console.log(this.ele.offsetHeight);
+			if( this.ele.offsetTop <= -this.ele.offsetHeight  ){		//当气球到达顶端，并完全消失时
+				// 气球重生
+				this.reborn();
+			}else{    // 当气球没有到达顶端是，逐渐上升
+				// 每次调用函数时，均获取一次气球距离上边缘的距离，然后减去this.speed，不断把top变小（向上升）
+				this.ele.style.top = this.ele.offsetTop - this.speed +'px';
+			}
+		}
+		// 气球到达顶端，并完全消失时的触发的方法
+		Balloon.prototype.reborn = function(){
+
+			// 设置气球在页面中的绝对定位的横坐标
+			this.ele.style.left = (document.documentElement.clientWidth - this.ele.offsetWidth)*Math.random() + 'px';
+
+			// console.dir( this.ele );
+			// console.log( this.ele.offsetWidth );
+			// console.dir( this.ele.clientWidth );
+			
+			// 设置气球在页面中的绝对定位的横坐标
+			this.ele.style.top = getRandom(document.documentElement.clientHeight,document.documentElement.clientHeight+50) + 'px';
+			// console.log(document.documentElement.clientWidth);
+			//根据分数进行设置
+			// 随机选中[1,8]之间的一个分数
+			this.mark = getRandom( 1,8 );
+			this.speed = this.mark;
+			// 随机选中不同分数的气球
+			this.ele.style.backgroundPosition = (this.mark-1)%4*(-this.ele.offsetWidth) + 'px '+ (Math.ceil(this.mark/4)-1)*(-this.ele.offsetHeight) +'px';
+		}
+		// 气球被判断在碰撞检测时通过，则气球爆炸
+		Balloon.prototype.godie = function(){
+			this.ele.classList.add('bomb');
+			//获取爆炸气球的分数
+			score.getScore(this.mark);
+			/********************当动画结束后气球立即重生，且去除bomb类**************************************/ 
+			var that = this;
+			this.ele.addEventListener( 'animationend',function(){
+				this.classList.remove('bomb');
+				that.reborn();
+			} )
+		}
+		/***********************气球对象结束*****************************************/
+
+		/***********************云朵对象开始*****************************************/
+		// 创建云朵对象：构造器+构造器原型的方法
+		function Cloud(){
+			// 创建dom元素
+			this.ele = document.createElement( 'div' );
+			// 由于是对dom元素进行css行内式设置，因此不需要设置类名区分
+			// 获取云朵dom元素宽高的数值
+			this.ele.height = getRandom(50,80);
+			this.ele.width = 2 * this.ele.height;
+			// 设置dom元素的宽高
+			this.ele.style.height = this.ele.height + 'px';
+			this.ele.style.width = this.ele.width + 'px';
+			// 添加背景
+			this.ele.style.background = 'url(images/cloud.png) no-repeat center center';
+			this.ele.style.backgroundSize = 'cover'
+
+
+			// 设置云朵dom元素的绝对定位
+			this.ele.style.position = 'absolute';
+			// 设置云朵绝对定位的横坐标
+			this.ele.style.left = getRandom( 0,document.documentElement.clientWidth-this.ele.width ) + 'px';
+			// 设置云朵绝对定位的纵坐标
+			this.ele.style.top  = getRandom(0,100) + "px";
+
+			// 设置云朵水平移动的速度大小
+			this.speed = getRandom(2,5);
+
+			/*********************设置云朵水平移动的方向，判断使云朵向左右运动的概率各占一半************************/
+			this.speed = Math.random() > 0.5 ? this.speed:-1*this.speed
+
+			// 将新创建的dom元素插入body中
+			document.body.appendChild( this.ele );
+		}
+
+		Cloud.prototype.move = function(){
+			// 每次调用该方法时，获取一次云朵距离左侧边缘的距离，
+			var oldLeft = this.ele.offsetLeft;
+			/******************************移动样式一：云朵始终向左移动*******************************************/
+			/*
+			if( oldLeft <= -this.ele.width){ // 当云朵到达左边缘，并完全消失时
+				//重置云朵的left，使该云朵出现在右侧边缘
+				this.ele.style.left = document.documentElement.clientWidth + 'px';
+			}else{ 						// 当云朵未到达左边缘时，始终向左移动
+				//然后减去this.speed，不断把left变小（向左移）
+				this.ele.style.left = oldLeft - this.speed + 'px'
+			}
+			*/
+			
+			/******************************移动样式二：云朵左右反弹移动*******************************************/
+			if( oldLeft <= 0 || oldLeft >= document.documentElement.clientWidth-this.ele.width ){ 
+			// 当云朵到达左边缘或右边缘时，转向移动
+				this.speed *= -1 ;
+			}
+			// 云朵移动
+			this.ele.style.left = oldLeft - this.speed + 'px'
+		}
+		/***********************云朵对象结束*****************************************/
+
+		/***********************枪对象结束*****************************************/
+		// 设置枪对象,只有这一个枪对象，直接使用字面量的形式创建
+		var gun = {
+			ele : document.createElement( 'div' ),    //创建dom元素
+			// 枪的初始化方法
+			initialism:function(){
+				// 设置dom元素
+				this.ele.style.width = '96px';
+				this.ele.style.height = '96px';
+				this.ele.style.background = 'url(images/gun.png) no-repeat center center';
+				this.ele.style.position = 'absolute';
+				this.ele.style.zIndex = 10;
+
+				// 将dom元素插入body
+				document.body.appendChild( this.ele );
+
+				var that = this;   //防止事件响应中的this丢失
+				// 当鼠标移动时，枪会跟随鼠标移动
+				document.addEventListener( 'mousemove', function( e ){
+					// 根据移动事件对象，获取鼠标的坐标位置，并使枪跟随移动
+					// console.log(e,e);
+					that.move( e.x,e.y );
+				} );
+			},
+			//枪的移动方法
+			move:function(gunX,gunY){
+				gunX = gunX - this.ele.offsetWidth/2;
+				gunY = gunY - this.ele.offsetHeight/2;
+				this.ele.style.left = gunX + 'px';
+				this.ele.style.top = gunY + 'px';
+			}
+		}
+		/***********************枪对象结束*****************************************/
+
+		/***********************左上角分数对象开始*****************************************/
+		// 设置左上角分数对象,只有这一个左上角分数对象，直接使用字面量的形式创建
+		var score = {
+			ele : document.createElement('div'),    //创建dom元素
+			grade:0,								//初始分数
+			initialism:function(){
+				this.ele.style.position = 'absolute';    //dom元素绝对定位
+				this.getScore(0);                      //初始化
+				// 将dom元素插入body中
+				document.body.appendChild( this.ele );
+			},
+
+			getScore:function(mark){
+				this.grade += mark;   //加上传入的实参
+
+				//将改变后的分数显示在dom元素中
+				this.ele.innerHTML = this.grade;
+			}
+		}
+		/***********************左上角分数对象结束*****************************************/
+
+		/***********************背景对象开始*****************************************/
+		// 设置背景对象,只有这一个背景对象，直接使用字面量的形式创建
+		var bg = {
+			src : 'images/bg.jpg',     //初始的背景
+			setSrc : function(newSrc){   //定义设置背景的方法
+				newSrc = newSrc || this.src;   //当有新传入的背景时，使用新背景，否则依旧使用旧背景
+				document.body.style.backgroundImage = "url("+ newSrc + ")";
+			},
+			// 当需要调用背景的方法时，只需要为其添加move方法，并在game对象的actors数组中插入即可
+			/*move:function(){
+
+			}*/
+		}
+		/***********************背景对象结束*****************************************/
+
+		/***********************总控制对象开始*****************************************/
+		// 设置总控制对象,只有这一个总控制对象，直接使用字面量的形式创建
+		var game = {
+			// 可设置修改
+			ballNumber 		  : 5,  		 //设置气球数量
+			currentBallNumber : 0,   		 //当前气球数
+			cloudNumber		  : 3,      	 //设置云朵数量
+			timeInterval	  : 1,  		 //产生气球的时间间隔,秒数
+			funInterval		  : 50,  		 //定时器的时间间隔，毫秒
+			// 不可设置修改
+			count 			  : 0,     		 //用于定时器计数
+			actors			  : [],       	 //用于存储游戏中的对象
+
+			// 开始游戏，用于控制整体游戏动画的开始
+			start:function(){
+				// 调用设置背景的方法
+				bg.setSrc();
+				
+				// 创建指定数量的云朵
+				for( var i = 0; i < this.cloudNumber; i++ ){
+					var cloud = new Cloud();     //新建指定数量的云朵
+					this.actors.push( cloud );		//将新建的云朵对象插入actors数组
+				} 
+				// 用于防止定时器中的this遗失，使在定时器中依旧可以使用到game对象的属性
+				var that = this;
+				
+				// 设置定时器，用于游戏整体动画
+				setInterval(function(){
+					that.count++;      //用于计数定时器执行函数的次数
+					// 创建指定数量的气球,且互相独立
+					//每隔1秒去检查，执行一次判断，是否需要产生一个气球
+					if( that.count%(that.timeInterval*1000/that.funInterval)==0 && that.currentBallNumber < that.ballNumber ){   //当前气球数量<指定气球数量
+						that.currentBallNumber++;	//每隔一段时间气球数量加一
+						var b1 = new Balloon();     //每隔一段时间新建一个气球对象
+						that.actors.push( b1 );		//将新建的气球对象插入actors数组
+					}
+					// 遍历actors中的对象，调用其move方法
+					for( var i = 0; i < that.actors.length; i++ ){
+						that.actors[i].move();
+					}
+
+				},this.funInterval);
+				
+				// 调用枪的初始化方法
+				gun.initialism();
+
+				// 创建鼠标点击事件，枪会射击--由于鼠标下始终跟随一个枪，因此不能直接为气球绑定点击事件，只能为body绑定
+				document.addEventListener( 'click',function(e){
+					// 枪声播放
+					//每次点击，播放枪声
+					var audio = document.getElementById('audio')
+					audio.play();
+					setTimeout(function(){    //枪声响起50毫秒后停止
+						audio.currentTime = 0;
+					},50);
+					// 碰撞检测
+					//获取点击处的坐标
+					// console.log(e.x,e.y);
+					// 遍历actors中的对象
+					for( var i = 0; i < that.actors.length; i++ ){
+						var obj = that.actors[i];
+
+						// 判断数组中的对象，只对其中气球进行操作
+						if( obj.constructor == Balloon ){
+							// console.log( obj.constructor );
+							// 获取气球的中心点,统一设置气球中心点距离其边缘的距离均为obj.ele.offsetWidth/2;
+							var balloon_x = obj.ele.offsetLeft + obj.ele.offsetWidth/2;
+							var balloon_y = obj.ele.offsetTop + obj.ele.offsetWidth/2;
+
+							// 设定当点击处的坐标距离气球中心点的坐标<气球中心点距离边缘的距离
+							if( Math.pow(e.x-balloon_x,2)+Math.pow(e.y-balloon_y,2) <= Math.pow(obj.ele.offsetWidth/2,2) ){
+								obj.godie();
+							}
+						}
+					}	
+				} );
+				// 调用score的初始化方法
+				score.initialism();
+			},
+		};
+		/***********************总控制对象结束*****************************************/
+		// 开始游戏
+		game.start();
+	</script>
+</body>
+</html>
